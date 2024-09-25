@@ -1,8 +1,8 @@
-PURPLEAIR CALIBRATION - CODES AND DATA
+PURPLEAIR CALIBRATION - CODES AND DATASETS
 
 This file describes codes and data used in the study on "Calibration of Low-Cost Particulate Matter Sensors PurpleAir: Model Development for Air Quality under High Relative Humidity Conditions"
 
-DATA
+DATASETS
 
 (1) "r0_5km_processeddata_PA_AQS_Jan2021_Aug2023_Final.csv" and "DAILY90_r0_5km_processeddata_PA_AQS_Jan2021_Aug2023_Final.csv" are respectively the hourly and daily processed 
 datasets used in the analyses to develop the calibration model of low-cost particulate matter sensors PurpleAir for air quality under high relative humidity conditions.
@@ -11,6 +11,6 @@ datasets used in the analyses to develop the calibration model of low-cost parti
 the main models developed in the study of calibration of low-cost particulate matter sensors PurpleAir for air quality under high relative humidity conditions.
 
 
-CODE
+CODES
 
 (1) "SSC and MLR Modeling data analysis.R"
