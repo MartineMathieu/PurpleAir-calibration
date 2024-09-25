@@ -1,4 +1,5 @@
 PURPLEAIR CALIBRATION - CODES AND DATA
+This file describes codes and data used in the study on "Calibration of Low-Cost Particulate Matter Sensors PurpleAir: Model Development for Air Quality under High Relative Humidity Conditions"
 
 DATA
 
