@@ -102,30 +102,6 @@ cor.test(modeling_data$conc, modelBj,
 mean(modelBj)
 sd(modelBj)
 
-# ADDING Model4 and Model Bj predicted values to our dataset
-###########################
-modeling_data_pred <- modeling_data
-modeling_data_pred$mod4_predict <- mod4$fitted.values
-modeling_data_pred$modBj_predict <- modelBj
-
-modeling_data_pred$predicted2 <- predict.lm(mod4, modeling_data_pred)
-mod4_prediction <- predict(mod4, modeling_data_pred)
-mod4_performance <- data.frame( R2 = R2(mod4_prediction, modeling_data_pred$conc),
-                                   RMSE = RMSE(mod4_prediction, modeling_data_pred$conc),
-                                   MAE = MAE(mod4_prediction, modeling_data_pred$conc))
-
-mod4_performance
-
-to_sites_colfax_clean$pred_gam <- gam_all_data$fitted.values #predict.lm(gam_all_data, to_sites_colfax_clean)
-to_sites_colfax_clean$pred_gam2 <- predict.gam(gam_all_data, to_sites_colfax_clean)
-head(to_sites_colfax_clean)
-gam_prediction <- predict(gam_all_data, to_sites_colfax_clean)
-gam_performance_mod <- data.frame( R2 = R2(gam_prediction, to_sites_colfax_clean$corrPA),
-                                   RMSE = RMSE(gam_prediction, to_sites_colfax_clean$corrPA),
-                                   MAE = MAE(gam_prediction, to_sites_colfax_clean$corrPA))
-
-gam_performance_mod
-
 
 # APPLYING Cross validation
 ###########################
