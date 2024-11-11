@@ -11,22 +11,46 @@
 ######################################### MODELING PROCESS
 
 # Libraries
-library(dplyr)
-library(Metrics)
-library(caret)
-library(randomForest)
-library(clustvarsel)
-library(BMA)
-library(cluster)
-library(NbClust)
-library(factoextra)
+# create a vector of all the packages (i.e. libraries) we will use
+all_packages <- c("dplyr",
+                  "Hmisc",
+                  "Metrics",
+                  "caret",
+                  "randomForest",
+                  "clustvarsel",
+                  "BMA",
+                  "cluster",
+                  "NbClust",
+                  "factoextra") 
 
-# Project directory 
-dir_data <- paste0("~DATA/")
+new_packages <- all_packages[!(all_packages %in% installed.packages()[,"Package"])]
 
+# install new packages
+if(length(new_packages)) install.packages(new_packages)
+
+# load all packages
+sapply(all_packages, require, character.only = T)
+
+
+# Project directory
+dir_data <- paste0("~PURPLEAIR_Data Correction/")
 setwd(paste0(dir_data))
 
-data_PA <- read.csv("r0_5km_processeddata_PA_AQS_Jan2021_Aug2023_Final.csv", header = TRUE)
+new_dirs <- paste0(dir_data, 
+                   c( "GRAPHS",
+                      "DATA")); new_dirs
+
+for (i in 1:length(new_dirs)){
+  
+  if(!dir.exists(new_dirs[i])){ 
+    dir.create(new_dirs[i])  
+  } else {
+    print(paste0(new_dirs[i], " already exists")) 
+  }
+}
+
+# Reading PA and AQS data
+data_PA <- read.csv("DATA/r0_5km_processeddata_PA_AQS_Jan2021_Aug2023_Final.csv", header = TRUE)
 modeling_data <- data_PA 
 head(modeling_data)
 names(modeling_data)
@@ -51,56 +75,65 @@ sensorPACount <- modeling_data %>% group_by(sensor_index) %>%tally()
 #########################################
 ######################################### MLR
 
-# USING the entire dataset
+mod1 <-lm(modeling_data$conc~modeling_data$A_B_Avg)
+mod2 <-lm(modeling_data$conc~modeling_data$A_B_Avg + modeling_data$humidity_a)
+mod3 <-lm(modeling_data$conc~modeling_data$A_B_Avg + modeling_data$temp_Celsius)
+mod4 <-lm(modeling_data$conc~modeling_data$A_B_Avg + modeling_data$humidity_a + modeling_data$temp_Celsius)
+
+# GETTING model coefficients
+###########################
+models_coeff <- data.frame(models =c('mod1', 'mod2', 'mod3', 'mod4', 'modBj'),
+                           intercept=c(mod1$coefficients[1], mod2$coefficients[1], mod3$coefficients[1], mod4$coefficients[1], 5.72),
+                           A_B_Avg=c(mod1$coefficients[2], mod2$coefficients[2], mod3$coefficients[2], mod4$coefficients[2],0.524),
+                           humidity= c('', mod2$coefficients[3], '', mod4$coefficients[3],0.0852),
+                           temp_Celcius= c('', '', mod3$coefficients[3], mod4$coefficients[4],''))
+
+
+# ADDING models predicted values to our dataset
+###########################
+modeling_data_pred<- modeling_data %>%
+  mutate(mod1_pred = mod1$fitted.values,
+         mod2_pred = mod2$fitted.values,
+         mod3_pred = mod3$fitted.values,
+         mod4_pred = mod4$fitted.values,
+         modBj_pred = 5.72+0.524*modeling_data$A_B_Avg-0.0852*modeling_data$humidity_a)
+
+
+# EVALUATING model performance
 ###########################
 
-mod1 <-lm(modeling_data$conc~modeling_data$A_B_Avg)
-summary(mod1)
-rmse(modeling_data$conc, mod1$fitted.values)
-mae(modeling_data$conc, mod1$fitted.values)
-R2(modeling_data$conc, mod1$fitted.values) 
-cor.test(modeling_data$conc, mod1$fitted.values,
-         method = "pearson")
+performance_r2_mlr <- data.frame(mod1 = R2(modeling_data_pred$conc, modeling_data_pred$mod1_pred),
+                                   mod2 = R2(modeling_data_pred$conc, modeling_data_pred$mod2_pred),
+                                   mod3 = R2(modeling_data_pred$conc, modeling_data_pred$mod3_pred),
+                                   mod4 = R2(modeling_data_pred$conc, modeling_data_pred$mod4_pred),
+                                   modB = R2(modeling_data_pred$conc, modeling_data_pred$modBj_pred))
 
-mod2 <-lm(modeling_data$conc~modeling_data$A_B_Avg + modeling_data$humidity_a)
-summary(mod2)
-rmse(modeling_data$conc, mod2$fitted.values)
-mae(modeling_data$conc, mod2$fitted.values)
-R2(modeling_data$conc, mod2$fitted.values) 
-cor.test(modeling_data$conc, mod2$fitted.values,
-         method = "pearson")
+print(performance_r2_mlr)
 
-mod3 <-lm(modeling_data$conc~modeling_data$A_B_Avg + modeling_data$temp_Celsius)
-summary(mod3)
-rmse(modeling_data$conc, mod3$fitted.values)
-mae(modeling_data$conc, mod3$fitted.values)
-R2(modeling_data$conc, mod3$fitted.values) 
-cor.test(modeling_data$conc, mod3$fitted.values,
-         method = "pearson")
-mean(mod3$fitted.values)
-sd(mod3$fitted.values)
+performance_rmse_mlr <- data.frame(mod1 = rmse(modeling_data_pred$conc, modeling_data_pred$mod1_pred),
+                                             mod2 = rmse(modeling_data_pred$conc, modeling_data_pred$mod2_pred),
+                                             mod3 = rmse(modeling_data_pred$conc, modeling_data_pred$mod3_pred),
+                                             mod4 = rmse(modeling_data_pred$conc, modeling_data_pred$mod4_pred),
+                                             modB = rmse(modeling_data_pred$conc, modeling_data_pred$modBj_pred))
 
+print(performance_rmse_mlr)
 
-mod4 <-lm(modeling_data$conc~modeling_data$A_B_Avg + modeling_data$humidity_a + modeling_data$temp_Celsius)
-summary(mod4)
-rmse(modeling_data$conc, mod4$fitted.values)
-mae(modeling_data$conc, mod4$fitted.values)
-R2(modeling_data$conc, mod4$fitted.values) 
-cor.test(modeling_data$conc, mod4$fitted.values,
-         method = "pearson")
-mean(mod4$fitted.values)
-sd(mod4$fitted.values)
+performance_mae_mlr <- data.frame(mod1 = mae(modeling_data_pred$conc, modeling_data_pred$mod1_pred),
+                                   mod2 = mae(modeling_data_pred$conc, modeling_data_pred$mod2_pred),
+                                   mod3 = mae(modeling_data_pred$conc, modeling_data_pred$mod3_pred),
+                                   mod4 = mae(modeling_data_pred$conc, modeling_data_pred$mod4_pred),
+                                   modB = mae(modeling_data_pred$conc, modeling_data_pred$modBj_pred))
 
-# APPLYING Barkjohn model
+print(performance_mae_mlr)
 
-modelBj <- 5.72+0.524*modeling_data$A_B_Avg-0.0852*modeling_data$humidity_a
-rmse(modeling_data$conc, modelBj)
-mae(modeling_data$conc, modelBj)
-R2(modeling_data$conc, modelBj) 
-cor.test(modeling_data$conc, modelBj,
-         method = "pearson")
-mean(modelBj)
-sd(modelBj)
+performance_R_mlr <- data.frame(mod1 = cor.test(modeling_data_pred$conc, modeling_data_pred$mod1_pred, method = "pearson")$estimate,
+                                  mod2 = cor.test(modeling_data_pred$conc, modeling_data_pred$mod2_pred, method = "pearson")$estimate,
+                                  mod3 = cor.test(modeling_data_pred$conc, modeling_data_pred$mod3_pred, method = "pearson")$estimate,
+                                  mod4 = cor.test(modeling_data_pred$conc, modeling_data_pred$mod4_pred, method = "pearson")$estimate,
+                                  modB = cor.test(modeling_data_pred$conc, modeling_data_pred$modBj_pred, method = "pearson")$estimate)
+
+print(performance_R_mlr)
+
 
 
 # APPLYING Cross validation
@@ -120,17 +153,12 @@ print(mod2LGOCV)
 cor.test(modeling_data$conc, mod2LGOCV$finalModel$fitted.values,
          method = "pearson")
 
-mean(mod2LGOCV$finalModel$fitted.values)
-sd(mod2LGOCV$finalModel$fitted.values)
-
 
 mod3LGOCV<-train(conc~A_B_Avg+temp_Celsius,data=modeling_data,method="glm",trControl=ctrl)
 summary(mod3LGOCV)
 print(mod3LGOCV)
 cor.test(modeling_data$conc, mod3LGOCV$finalModel$fitted.values,
          method = "pearson")
-mean(mod3LGOCV$finalModel$fitted.values)
-sd(mod3LGOCV$finalModel$fitted.values)
 
 
 mod4LGOCV<-train(conc~A_B_Avg+humidity_a+temp_Celsius,data=modeling_data,method="glm",trControl=ctrl)
@@ -138,77 +166,55 @@ summary(mod4LGOCV)
 print(mod4LGOCV)
 cor.test(modeling_data$conc, mod4LGOCV$finalModel$fitted.values,
          method = "pearson")
-mean(mod4LGOCV$finalModel$fitted.values)
-sd(mod4LGOCV$finalModel$fitted.values)
 
 
 # Sensitivity analysis - APPLYING HOURLY DATA TO DAILY 90 DATA
 ##########################
-data_PA_DAILY <- read.csv("DAILY90_r0_5km_processeddata_PA_AQS_Jan2021_Aug2023_Final.csv", header = TRUE)
+data_PA_DAILY <- read.csv("DATA/DAILY90_r0_5km_processeddata_PA_AQS_Jan2021_Aug2023_Final.csv", header = TRUE)
 modeling_data_90 <- data_PA_DAILY
 
-# Evaluating dataset
-mean(fullAQS_and_PA_data_DAILY_90_clean$conc)
-sd(fullAQS_and_PA_data_DAILY_90_clean$conc)
-mean(fullAQS_and_PA_data_DAILY_90_clean$A_B_Avg)
-sd(fullAQS_and_PA_data_DAILY_90_clean$A_B_Avg)
 
-# Modeling
-model_1<- 3.6667550+0.4053418* modeling_data_90$A_B_Avg
+modeling_data_90 <- modeling_data_90%>% mutate(model1= models_coeff[1,2]+models_coeff[1,3]* modeling_data_90$A_B_Avg,
+                                    model2= models_coeff[2,2]+models_coeff[2,3]*modeling_data_90$A_B_Avg+as.numeric(models_coeff[2,4])*modeling_data_90$humidity_a,
+                                    model3= models_coeff[3,2]+models_coeff[3,3]*modeling_data_90$A_B_Avg+as.numeric(models_coeff[3,5])*modeling_data_90$temp_Celsius,
+                                    model4= models_coeff[4,2]+models_coeff[4,3]*modeling_data_90$A_B_Avg+as.numeric(models_coeff[4,4])*modeling_data_90$humidity_a + as.numeric(models_coeff[4,5])*modeling_data_90$temp_Celsius,
+                                    modelBj= 5.72+0.524*modeling_data_90$A_B_Avg-0.0852*modeling_data_90$humidity_a)
 
-rmse(modeling_data_90$conc, model_1)
-mae(modeling_data_90$conc, model_1)
-R2(modeling_data_90$conc, model_1)
-cor.test(modeling_data_90$conc, model_1,
-         method = "pearson")
+# EVALUATING model performance
+###########################
 
-model_2 <- 6.3384228+0.4143437*modeling_data_90$A_B_Avg-0.0506037*modeling_data_90$humidity_a
+data.frame(mod1 = R2(modeling_data_90$conc, modeling_data_90$model1),
+           mod2 = R2(modeling_data_90$conc, modeling_data_90$model2),
+           mod3 = R2(modeling_data_90$conc, modeling_data_90$model3),
+           mod4 = R2(modeling_data_90$conc, modeling_data_90$model4),
+           modB = R2(modeling_data_90$conc, modeling_data_90$modelBj))
 
-rmse(modeling_data_90$conc, model_2)
-mae(modeling_data_90$conc, model_2)
-R2(modeling_data_90$conc, model_2)
-cor.test(modeling_data_90$conc, model_2,
-         method = "pearson")
+data.frame(mod1 = rmse(modeling_data_90$conc, modeling_data_90$model1),
+           mod2 = rmse(modeling_data_90$conc, modeling_data_90$model2),
+           mod3 = rmse(modeling_data_90$conc, modeling_data_90$model3),
+           mod4 = rmse(modeling_data_90$conc, modeling_data_90$model4),
+           modB = rmse(modeling_data_90$conc, modeling_data_90$modelBj))
 
-model_3 <- 1.7642336+0.4109897*modeling_data_90$A_B_Avg+0.0847196*modeling_data_90$temp_Celsius
+data.frame(mod1 = mae(modeling_data_90$conc, modeling_data_90$model1),
+           mod2 = mae(modeling_data_90$conc, modeling_data_90$model2),
+           mod3 = mae(modeling_data_90$conc, modeling_data_90$model3),
+           mod4 = mae(modeling_data_90$conc, modeling_data_90$model4),
+           modB = mae(modeling_data_90$conc, modeling_data_90$modelBj))
 
-model_3 <- 1.76+0.41*modeling_data_90$A_B_Avg+0.08*modeling_data_90$temp_Celsius
+data.frame(mod1 = cor.test(modeling_data_90$conc, modeling_data_90$model1,method = "pearson")$estimate,
+           mod2 = cor.test(modeling_data_90$conc, modeling_data_90$model2, method = "pearson")$estimate,
+           mod3 = cor.test(modeling_data_90$conc, modeling_data_90$model3, method = "pearson")$estimate,
+           mod4 = cor.test(modeling_data_90$conc, modeling_data_90$model4, method = "pearson")$estimate,
+           modB = cor.test(modeling_data_90$conc, modeling_data_90$modelBj, method = "pearson")$estimate)
 
-rmse(modeling_data_90$conc, model_3)
-mae(modeling_data_90$conc, model_3)
-R2(modeling_data_90$conc, model_3)
-cor.test(modeling_data_90$conc, model_3,
-         method = "pearson")
-
-model_4 <- 4.3295358+0.4182906*modeling_data_90$A_B_Avg-0.0445768*modeling_data_90$humidity_a +
-  +   0.0752867*modeling_data_90$temp_Celsius
-
-model_4 <- 4.33+0.42*modeling_data_90$A_B_Avg-0.04*modeling_data_90$humidity_a +
-  +   0.07*modeling_data_90$temp_Celsius
-
-rmse(modeling_data_90$conc, model_4)
-mae(modeling_data_90$conc, model_4)
-R2(modeling_data_90$conc, model_4)
-cor.test(modeling_data_90$conc, model_4,
-         method = "pearson")
-
-modelBj_90 <- 5.72+0.524*modeling_data_90$A_B_Avg-0.0852*modeling_data_90$humidity_a
-modeling_data_90$modBj <- 5.72+0.524*modeling_data_90$A_B_Avg-0.0852*modeling_data_90$humidity_a
-
-rmse(modeling_data_90$conc, modelBj_90)
-mae(modeling_data_90$conc, modelBj_90)
-R2(modeling_data_90$conc, modelBj_90)
-cor.test(modeling_data_90$conc, modelBj_90,
-         method = "pearson")
-
-# GRAPH predicted concentrations - Model 4 and Model Bj
+# MAKING graph of predicted concentrations and AQS concentrations for Model 4 and Model Bj
 ##########################
 
-modeling_data_90$mod4 <- 4.3295358 +0.4182906*modeling_data_90$A_B_Avg-00.0445768*modeling_data_90$humidity_a +
-  0.0752867*modeling_data_90$temp_Celsius
+# CHECKING data range for defining x and y axis
+range(modeling_data_90$model4)
+range(modeling_data_90$modelBj)
 
-range(modeling_data_90_graph$mod4)
-ggplot(modeling_data_90, aes(x = mod4, y = conc, color = humidity_a)) +
+ggplot(modeling_data_90, aes(x = model4, y = conc, color = humidity_a)) +
   geom_jitter() +
   scale_fill_gradient(low = "#E2F3F5",  high = "blue3", na.value = "grey50", aesthetics = "color") +
   theme_bw() +
@@ -217,10 +223,8 @@ ggplot(modeling_data_90, aes(x = mod4, y = conc, color = humidity_a)) +
               geom = "smooth")+
   xlim(0, 60) + ylim(0,60)
 
-modeling_data_90$modBj <- 5.72+0.524*modeling_data_90$A_B_Avg-0.0852*modeling_data_90$humidity_a
 
-range(modeling_data_90_graph$modBj)
-ggplot(modeling_data_90, aes(x = modBj, y = conc, color = humidity_a)) +
+ggplot(modeling_data_90, aes(x = modelBj, y = conc, color = humidity_a)) +
   geom_jitter() +
   scale_fill_gradient(low = "#EFF396" ,high = "green4", na.value = "grey50", aesthetics = "color") +
   theme_bw() +
@@ -248,14 +252,14 @@ cor.test(modeling_data_NOAA$conc, mod4_NOAA$fitted.values,
 #########################################
 ######################################### SSC
 
-# FIND best variables
+# FINDING best variables
 
 modeling_data_sub <- subset(modeling_data, select = c(humidity_a,temp_Celsius))
 modeling_data_sub_20 <- modeling_data_sub %>% sample_frac(.2)
 PA_BR_cluster3 <- clustvarsel(modeling_data_sub_20, G = 1:6)
 PA_BR_cluster3
 
-# DETERMINE number of clusters
+# DETERMINING number of clusters
 
 modeling_data_sub <- select(modeling_data_sub, -3)
 NbClust(modeling_data_sub, method = 'complete', index = 'all')$Best.nc
@@ -399,7 +403,7 @@ data.frame( R2 = R2(grpPA_df2_DAILY$conc, grpPA_df2_DAILY$PApredict),
 cor.test(grpPA_df2_DAILY$conc, grpPA_df2_DAILY$PApredict, 
          method = "pearson")
 
-# GRAPH predicted concentrations - Clusters 1 and 2
+# MAKING graph of predicted/AQS concentrations - Clusters 1 and 2
 ##########################
 
 ggplot(grpPA_df1_DAILY, aes(x =PApredict, y = conc, color = humidity_a)) +
