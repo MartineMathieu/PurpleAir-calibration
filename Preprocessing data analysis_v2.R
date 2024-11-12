@@ -12,7 +12,7 @@
 
 # Libraries
 ###############################
-# create a vector of all the packages (i.e. libraries) we will use
+# Creating a vector of all the packages
 all_packages <- c("dplyr",
                   "data.table",
                   "stringr",
